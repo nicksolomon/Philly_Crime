@@ -8,7 +8,7 @@ source("helpers.R")
 shinyServer(function(input,output){
   output$map <- renderPlot({
     
-    makemap(input$years, input$type)
+    makemap(input$years, input$type, input$view)
     
   }, width = 900, height = 700)
 })
