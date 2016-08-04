@@ -2,8 +2,8 @@ name: by_year_app
 account: nicksolomon
 server: shinyapps.io
 appId: 116559
-bundleId: 515323
+bundleId: 523404
 url: https://nicksolomon.shinyapps.io/by_year_app/
-when: 1469490584.81813
+when: 1470271971.61389
 asMultiple: FALSE
 asStatic: FALSE

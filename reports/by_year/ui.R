@@ -1,11 +1,11 @@
+library(leaflet)
 shinyUI(fluidPage(
   titlePanel("Violent crime in northwest Philadelphia"),
   sidebarLayout(position = "left",
-                sidebarPanel(dateRangeInput("years","Select date range:", start = "2016-01-01", end = "2016-07-24", min = "2006-01-01", max = "2016-07-24", startview = "year", separator = "to"),
+                sidebarPanel(dateRangeInput("dates","Select date range:", start = "2016-01-01", end = "2016-07-24", min = "2006-01-01", max = "2016-07-24", startview = "year", separator = "to"),
                              
                              checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"), selected = "Homicides"),
                              
-                             selectInput("view", "View style:", choices = c("Overlay", "Side-by-side"), multiple = FALSE),
                              
                              p("This map shows the location of different types of violent crime
                                in northwest Philadelphia from the start of 2006 to July 24, 2016 
@@ -28,6 +28,6 @@ shinyUI(fluidPage(
                                ownership is claimed. This work is licensed under the", a("MIT License.", 
                                href="https://opensource.org/licenses/MIT"))
                 ),
-                mainPanel(plotOutput("map", width = "100%"))
+                mainPanel(leafletOutput("map"))
   )
 ))
