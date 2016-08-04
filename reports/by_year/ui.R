@@ -28,6 +28,8 @@ shinyUI(fluidPage(
                                ownership is claimed. This work is licensed under the", a("MIT License.", 
                                href="https://opensource.org/licenses/MIT"))
                 ),
-                mainPanel(leafletOutput("map"))
+                mainPanel(
+                  tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
+                  leafletOutput("map"))
   )
 ))

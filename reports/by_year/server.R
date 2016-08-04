@@ -28,7 +28,7 @@ shinyServer(function(input,output){
   observe({
     pal <- type_pal()
     leafletProxy("map", data = points_filter()) %>% 
-      clearShapes() %>% 
+      clearMarkers() %>% 
       addCircleMarkers(~LAT, ~LON, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
       clearControls() %>% 
       addLegend("bottomright", pal, ~TYPE, title = "Crime type")
