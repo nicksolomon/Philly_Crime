@@ -1,0 +1,9 @@
+name: nw_philly_crime
+account: nicksolomon
+server: shinyapps.io
+appId: 119329
+bundleId: 528287
+url: https://nicksolomon.shinyapps.io/nw_philly_crime/
+when: 1470818810.31698
+asMultiple: FALSE
+asStatic: FALSE
