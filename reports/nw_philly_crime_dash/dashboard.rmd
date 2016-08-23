@@ -1,0 +1,103 @@
+---
+title: "Crime in Northwest Philadelphia"
+output: 
+  flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(leaflet)
+library(dplyr)
+
+
+
+
+```
+
+Crime Occurences
+================
+
+Select date range and crime type {.sidebar}
+-------------------------------------------
+
+```{r}
+load("data/points.RData")
+load("data/bb.RData")
+
+time_origin <- as.POSIXct("1970-01-01 00:00:00 EST")
+
+dateRangeInput("dates", "Date range:", start = "2016-01-01", end = "2016-07-24", min = "2006-01-01", max = "2016-07-24", startview = "year", separator = "to")
+
+checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"), selected = "Homicides")
+
+renderText({
+  typeof(input$dates)
+  })
+
+renderText({
+  typeof(input$dates[1])
+  })
+
+renderText({
+  typeof(input$dates[2])
+  })
+
+points_filter <- reactive({
+    filter(points, DISPATCH_DATE >= as.POSIXct(input$dates[1], origin = time_origin)
+           & DISPATCH_DATE <=  as.POSIXct(input$dates[2], origin = time_origin)
+           & TYPE %in% input$type)
+  })
+
+type_pal <- reactive({
+    colorFactor(topo.colors(3), points$TYPE)
+  })
+```
+
+This map shows the location of different types of violent crime in northwest
+Philadelphia from the start of 2006 to July 24, 2016 (the date the data were
+accessed). This visualization is incomplete as entries in the database without
+an easily accessible latitude and longitude (of which there are many) aren't
+shown on the map.
+
+In the original data, the crimes were further subdivided. I've ommited these
+categories for the sake of clarity and interpretability of the map. The assault
+category was divided into assaults with a firearm, assaults without a firearm,
+and all other assaults. Homicides were categorized as either criminal,
+negligent, or justifiable. The sexual assault categories were the vaguest. I
+chose to include crimes categorized as rape and a catch-all other category of
+noncommercial sex offenses. It's very possible that some important nuance has
+been lost in these categorizations.
+
+The data were collected from
+[OpenDataPhilly](https://www.opendataphilly.org/dataset/crime-incidents) and no 
+ownership is claimed. This work is licensed under the [MIT
+License](https://opensource.org/licenses/MIT)
+
+Column
+-------
+
+```{r}
+# map <- renderLeaflet({
+#     leaflet(points) %>%
+#       addProviderTiles("Stamen.TonerLite") %>%
+#       fitBounds(~min(LAT), ~min(LON), ~max(LAT), ~max(LON))
+#   })
+# 
+# observe({
+#     pal <- type_pal()
+#     leafletProxy("map", data = points_filter()) %>%
+#       clearMarkers() %>%
+#       addCircleMarkers(~LAT, ~LON, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
+#       clearControls() %>%
+#       addLegend("bottomright", pal, ~TYPE, title = "Crime type")
+#   })
+# 
+# #tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}")
+# leafletOutput("map")
+
+
+```
+
+Crime Density
+=============
