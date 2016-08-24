@@ -14,6 +14,15 @@ library(KernSmooth)
 load("data/points.RData")
 load("data/bb.RData")
 
+points_year <- points
+points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
+points_year$TYPE <- as.character(points_year$TYPE)
+
+#Make a color pallete for crime types
+type_pal <- reactive({
+    colorFactor(topo.colors(3), points$TYPE)
+  })
+
 ```
 
 Crime Occurences
@@ -23,11 +32,6 @@ Select date range and crime type {.sidebar}
 -------------------------------------------
 
 ```{r}
-
-#Make a color pallete for crime types
-type_pal <- reactive({
-    colorFactor(topo.colors(3), points$TYPE)
-  })
 
 #Make some inputs
 dateRangeInput("dates", "Date range:", start = "2016-01-01", end = "2016-07-24",
@@ -96,12 +100,24 @@ Select year {.sidebar}
 
 ```{r}
 #Make inputs
-sliderInput("year", "Year:", min = 2006, max = 2016, value = 2016, step = 1, ticks = FALSE, round = TRUE,
+sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = 2016, step = 1,
+            ticks = FALSE, round = TRUE,
             sep = "") #check out animate once everything is working...
-checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"),
-                   selected = "Homicides")
+radioButtons("type_heat", "Crime type:",
+             choices = c("Homicides", "Assaults", "Sexual assaults"), 
+             selected = "Homicides")
 
+# points_filter_heat <- reactive({
+#     filter(points_year, year == 2015)
+#   })
 
+renderText({
+  input$year_heat
+})
+
+renderText({
+  input$type_heat
+})
 ```
 
 
@@ -110,18 +126,40 @@ Column
 
 ```{r}
 
-points_filter_heat <- reactive({
-    filter(points, as.POSIXlt(DISPATCH_DATE)$ year + 1900 == input$year
-           & TYPE %in% input$type)
+
+
+# density <- reactive({
+#   bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
+#          bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
+# })
+# 
+# contours <- reactive({
+#   contourLines(density()$x1, density()$x2, density()$fhat)
+# })
+
+points_filter_heat <- filter(points_year, year == 2015 & TYPE == "Homicides")
+
+kde <- bkde2D(cbind(points_filter_heat$LON, points_filter_heat$LAT),
+                  bandwidth = c(bw.nrd(points_filter_heat$LON),
+                                bw.nrd(points_filter_heat$LAT)))
+
+contours <- contourLines(kde$x1, kde$x2, kde$fhat)
+
+
+output$map_heat <- renderLeaflet({
+    leaflet(points) %>%
+    addProviderTiles("Stamen.TonerLite") %>%
+    fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT)) %>% 
+    addPolygons(contours[[1]]$x, contours[[1]]$y, color = "red")
   })
 
-bandwidth <- c(bw.nrd(points$LON), bw.nrd(points$LAT))
+# observe({
+#     contour_temp <- contours()
+#     leafletProxy("map_heat") %>%
+#     addPolygons(contour_temp[[2]]$x, contour_temp[[2]]$y, fillColor = "red")
+#   })
 
-density <- reactive({
-  bkde2D(cbind(points_filter_heat$LON, points_filter_heat$LAT), bandwidth = bandwidth)
-})
+leafletOutput("map_heat")
 
-contours <- reactive({
-  contourLines(density$x1, density$x2, density$fhat)
-})
+
 ```
