@@ -1,18 +1,14 @@
 ---
 title: "Crime in Northwest Philadelphia"
+runtime: shiny
 output: 
   flexdashboard::flex_dashboard
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
 library(leaflet)
 library(dplyr)
-
-
-
-
 ```
 
 Crime Occurences
@@ -31,21 +27,9 @@ dateRangeInput("dates", "Date range:", start = "2016-01-01", end = "2016-07-24",
 
 checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"), selected = "Homicides")
 
-renderText({
-  typeof(input$dates)
-  })
-
-renderText({
-  typeof(input$dates[1])
-  })
-
-renderText({
-  typeof(input$dates[2])
-  })
-
 points_filter <- reactive({
-    filter(points, DISPATCH_DATE >= as.POSIXct(input$dates[1], origin = time_origin)
-           & DISPATCH_DATE <=  as.POSIXct(input$dates[2], origin = time_origin)
+    filter(points, DISPATCH_DATE >= as.POSIXct(format(input$dates[1]), format = "%Y-%m-%d")
+           & DISPATCH_DATE <=  as.POSIXct(format(input$dates[2]), format = "%Y-%m-%d")
            & TYPE %in% input$type)
   })
 
@@ -78,25 +62,23 @@ Column
 -------
 
 ```{r}
-# map <- renderLeaflet({
-#     leaflet(points) %>%
-#       addProviderTiles("Stamen.TonerLite") %>%
-#       fitBounds(~min(LAT), ~min(LON), ~max(LAT), ~max(LON))
-#   })
-# 
-# observe({
-#     pal <- type_pal()
-#     leafletProxy("map", data = points_filter()) %>%
-#       clearMarkers() %>%
-#       addCircleMarkers(~LAT, ~LON, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
-#       clearControls() %>%
-#       addLegend("bottomright", pal, ~TYPE, title = "Crime type")
-#   })
-# 
-# #tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}")
-# leafletOutput("map")
+output$map <- renderLeaflet({
+    leaflet(points) %>%
+      addProviderTiles("Stamen.TonerLite") %>%
+      fitBounds(~min(LAT), ~min(LON), ~max(LAT), ~max(LON))
+  })
 
+observe({
+    pal <- type_pal()
+    leafletProxy("map", data = points_filter()) %>%
+      clearMarkers() %>%
+      addCircleMarkers(~LAT, ~LON, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
+      clearControls() %>%
+      addLegend("bottomright", pal, ~TYPE, title = "Crime type")
+  })
 
+tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}")
+leafletOutput("map")
 ```
 
 Crime Density

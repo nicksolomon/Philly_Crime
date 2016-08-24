@@ -24,4 +24,4 @@ points$TYPE[which(grepl("Sex|Rape", points$TEXT_GENERAL_CODE))] <- "Sexual assau
 points$TYPE <- as.factor(points$TYPE)
 
 
-save(points, file = "reports/by_year/data/points.RData")
+#save(points, file = "reports/by_year/data/points.RData")
