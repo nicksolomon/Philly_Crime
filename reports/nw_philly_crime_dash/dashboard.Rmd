@@ -9,6 +9,11 @@ output:
 library(flexdashboard)
 library(leaflet)
 library(dplyr)
+library(KernSmooth)
+
+load("data/points.RData")
+load("data/bb.RData")
+
 ```
 
 Crime Occurences
@@ -18,24 +23,26 @@ Select date range and crime type {.sidebar}
 -------------------------------------------
 
 ```{r}
-load("data/points.RData")
-load("data/bb.RData")
 
-time_origin <- as.POSIXct("1970-01-01 00:00:00 EST")
+#Make a color pallete for crime types
+type_pal <- reactive({
+    colorFactor(topo.colors(3), points$TYPE)
+  })
 
-dateRangeInput("dates", "Date range:", start = "2016-01-01", end = "2016-07-24", min = "2006-01-01", max = "2016-07-24", startview = "year", separator = "to")
+#Make some inputs
+dateRangeInput("dates", "Date range:", start = "2016-01-01", end = "2016-07-24",
+               min = "2006-01-01", max = "2016-07-24", startview = "year", separator = "to")
 
-checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"), selected = "Homicides")
+checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"),
+                   selected = "Homicides")
 
+#Filter points to be displayed based on the inputs
 points_filter <- reactive({
     filter(points, DISPATCH_DATE >= as.POSIXct(format(input$dates[1]), format = "%Y-%m-%d")
            & DISPATCH_DATE <=  as.POSIXct(format(input$dates[2]), format = "%Y-%m-%d")
            & TYPE %in% input$type)
   })
 
-type_pal <- reactive({
-    colorFactor(topo.colors(3), points$TYPE)
-  })
 ```
 
 This map shows the location of different types of violent crime in northwest
@@ -65,14 +72,14 @@ Column
 output$map <- renderLeaflet({
     leaflet(points) %>%
       addProviderTiles("Stamen.TonerLite") %>%
-      fitBounds(~min(LAT), ~min(LON), ~max(LAT), ~max(LON))
+      fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
   })
 
 observe({
     pal <- type_pal()
     leafletProxy("map", data = points_filter()) %>%
       clearMarkers() %>%
-      addCircleMarkers(~LAT, ~LON, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
+      addCircleMarkers(~LON, ~LAT, color = ~pal(TYPE), radius = 3, opacity = 1) %>%
       clearControls() %>%
       addLegend("bottomright", pal, ~TYPE, title = "Crime type")
   })
@@ -83,3 +90,38 @@ leafletOutput("map")
 
 Crime Density
 =============
+
+Select year {.sidebar}
+----------------------
+
+```{r}
+#Make inputs
+sliderInput("year", "Year:", min = 2006, max = 2016, value = 2016, step = 1, ticks = FALSE, round = TRUE,
+            sep = "") #check out animate once everything is working...
+checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "Sexual assaults"),
+                   selected = "Homicides")
+
+
+```
+
+
+Column
+-------
+
+```{r}
+
+points_filter_heat <- reactive({
+    filter(points, as.POSIXlt(DISPATCH_DATE)$ year + 1900 == input$year
+           & TYPE %in% input$type)
+  })
+
+bandwidth <- c(bw.nrd(points$LON), bw.nrd(points$LAT))
+
+density <- reactive({
+  bkde2D(cbind(points_filter_heat$LON, points_filter_heat$LAT), bandwidth = bandwidth)
+})
+
+contours <- reactive({
+  contourLines(density$x1, density$x2, density$fhat)
+})
+```
