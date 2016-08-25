@@ -10,13 +10,16 @@ library(flexdashboard)
 library(leaflet)
 library(dplyr)
 library(KernSmooth)
+library(raster)
+library(RColorBrewer)
 
 load("data/points.RData")
+load("data/points_year.RData")
 load("data/bb.RData")
 
 points_year <- points
 points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
-points_year$TYPE <- as.character(points_year$TYPE)
+# points_year$TYPE <- as.character(points_year$TYPE)
 
 #Make a color pallete for crime types
 type_pal <- reactive({
@@ -65,7 +68,7 @@ noncommercial sex offenses. It's very possible that some important nuance has
 been lost in these categorizations.
 
 The data were collected from
-[OpenDataPhilly](https://www.opendataphilly.org/dataset/crime-incidents) and no 
+[OpenDataPhilly](https://www.opendataphilly.org/dataset/crime-incidents) and no
 ownership is claimed. This work is licensed under the [MIT
 License](https://opensource.org/licenses/MIT)
 
@@ -107,17 +110,42 @@ radioButtons("type_heat", "Crime type:",
              choices = c("Homicides", "Assaults", "Sexual assaults"), 
              selected = "Homicides")
 
-# points_filter_heat <- reactive({
-#     filter(points_year, year == 2015)
-#   })
+points_filter_heat <- reactive({
+  shiny::validate(need(input$year_heat, label = "year"))
+  points_year %>% 
+   filter(year == input$year_heat
+            & points_year$TYPE %in% input$type_heat)
+  })
 
-renderText({
-  input$year_heat
+kde <- reactive({
+  bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
+         bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
 })
 
-renderText({
-  input$type_heat
+norm <- reactive({
+  int <- 0
+  for(i in 1:(nrow(kde()$fhat)-1)){
+    for(j in 1:(ncol(kde()$fhat)-1)){
+      int <- int + kde()$fhat[i,j]*(kde()$x1[j+1]-kde()$x1[j])*(kde()$x2[i+1]-kde()$x2[1])
+    }
+  }
+  int
 })
+
+contours <- reactive({
+  contourLines(kde()$x1, kde()$x2, kde()$fhat)
+})
+
+
+# heat_raster <- reactive({
+#   raster(list(x = kde()$x1, y = kde()$x2, z = kde()$fhat))
+# })
+
+pal <- reactive({
+  colorFactor("Reds",
+               unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))]))
+})
+
 ```
 
 
@@ -125,41 +153,36 @@ Column
 -------
 
 ```{r}
-
-
-
-# density <- reactive({
-#   bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
-#          bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
-# })
-# 
-# contours <- reactive({
-#   contourLines(density()$x1, density()$x2, density()$fhat)
-# })
-
-points_filter_heat <- filter(points_year, year == 2015 & TYPE == "Homicides")
-
-kde <- bkde2D(cbind(points_filter_heat$LON, points_filter_heat$LAT),
-                  bandwidth = c(bw.nrd(points_filter_heat$LON),
-                                bw.nrd(points_filter_heat$LAT)))
-
-contours <- contourLines(kde$x1, kde$x2, kde$fhat)
-
-
 output$map_heat <- renderLeaflet({
-    leaflet(points) %>%
+    leaflet(points_year) %>%
     addProviderTiles("Stamen.TonerLite") %>%
-    fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT)) %>% 
-    addPolygons(contours[[1]]$x, contours[[1]]$y, color = "red")
+    fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
   })
 
 # observe({
-#     contour_temp <- contours()
-#     leafletProxy("map_heat") %>%
-#     addPolygons(contour_temp[[2]]$x, contour_temp[[2]]$y, fillColor = "red")
+#   leafletProxy("map_heat") %>%
+#     clearImages() %>%
+#     addRasterImage(heat_raster(), colors = pal())
 #   })
 
+
+observe({
+  pal_temp <- pal()
+  norm_temp <- norm()
+  values_temp <- unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))])
+  leafletProxy("map_heat") %>%
+    clearShapes()
+  
+  for(i in 1:length(contours())){
+    leafletProxy("map_heat") %>% 
+      addPolylines(contours()[[i]]$x, contours()[[i]]$y, color = pal_temp(contours()[[i]]$level), weight = 4)
+  }
+  
+  leafletProxy("map_heat") %>% 
+    clearControls() %>% 
+    addLegend("bottomleft", pal = pal_temp, values = values_temp, labFormat = labelFormat(digits = 3, transform = function(x) x/norm_temp))
+  })
+
+tags$style(type = "text/css", "#map_heat {height: calc(100vh - 80px) !important;}")
 leafletOutput("map_heat")
-
-
 ```

@@ -1,0 +1,96 @@
+---
+title: "Crime in Northwest Philadelphia"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard
+---
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(leaflet)
+library(dplyr)
+library(KernSmooth)
+library(raster)
+library(RColorBrewer)
+
+#load("data/points.RData")
+load("data/points_year.RData")
+load("data/bb.RData")
+
+# points_year <- points
+# points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
+# points_year$TYPE <- as.character(points_year$TYPE)
+
+#Make a color pallete for crime types
+# type_pal <- reactive({
+#     colorFactor(topo.colors(3), points$TYPE)
+#   })
+
+```
+Crime Density
+=============
+
+Select year {.sidebar}
+----------------------
+
+```{r}
+#Make inputs
+sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = 2016, step = 1,
+            ticks = FALSE, round = TRUE,
+            sep = "") #check out animate once everything is working...
+radioButtons("type_heat", "Crime type:",
+             choices = c("Homicides", "Assaults", "Sexual assaults"), 
+             selected = "Homicides")
+
+points_filter_heat <- reactive({
+  shiny::validate(need(input$year_heat, label = "year"))
+  points_year %>% 
+   filter(year == input$year_heat
+            & points_year$TYPE %in% input$type_heat)
+  })
+
+kde <- reactive({
+  bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
+         bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
+})
+
+heat_map <- reactive({
+  raster(list(x = kde()$x1, y = kde()$x2, z = kde()$fhat))
+})
+
+pal <- reactive({
+  colorNumeric("YlOrRd", values(heat_map()),
+  na.color = "transparent")
+})
+
+```
+
+
+Column
+-------
+
+```{r}
+
+
+# contours <- reactive({
+#   contourLines(kde()$x1, kde()$x2, kde()$fhat)
+# })
+
+
+
+output$map_heat <- renderLeaflet({
+    leaflet(points_year) %>%
+    addProviderTiles("Stamen.TonerLite") %>%
+    fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
+  })
+
+#test <- reactiveValues(heat = heat_map, pal = pal)
+
+observe({
+  leafletProxy("map_heat") %>%
+    clearShapes() %>%
+    addRasterImage(heat_map(), colors = pal())
+  })
+
+tags$style(type = "text/css", "#map_heat {height: calc(100vh - 80px) !important;}")
+leafletOutput("map_heat")
+```
