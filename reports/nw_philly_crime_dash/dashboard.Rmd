@@ -17,8 +17,8 @@ load("data/points.RData")
 load("data/points_year.RData")
 load("data/bb.RData")
 
-points_year <- points
-points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
+# points_year <- points
+# points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
 # points_year$TYPE <- as.character(points_year$TYPE)
 
 #Make a color pallete for crime types
@@ -76,12 +76,14 @@ Column
 -------
 
 ```{r}
+#Make a map
 output$map <- renderLeaflet({
     leaflet(points) %>%
       addProviderTiles("Stamen.TonerLite") %>%
       fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
   })
 
+#Add stuff to it
 observe({
     pal <- type_pal()
     leafletProxy("map", data = points_filter()) %>%
@@ -91,6 +93,7 @@ observe({
       addLegend("bottomright", pal, ~TYPE, title = "Crime type")
   })
 
+#This makes the map take up the whole vertical space available
 tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}")
 leafletOutput("map")
 ```
@@ -109,19 +112,24 @@ sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = 2016, step = 1
 radioButtons("type_heat", "Crime type:",
              choices = c("Homicides", "Assaults", "Sexual assaults"), 
              selected = "Homicides")
+checkboxInput("display_points", "Display points", value = FALSE)
 
+#Filter points again
 points_filter_heat <- reactive({
-  shiny::validate(need(input$year_heat, label = "year"))
+  shiny::validate(need(input$year_heat, label = "year")) #For some reason it won't work without this
   points_year %>% 
    filter(year == input$year_heat
             & points_year$TYPE %in% input$type_heat)
   })
 
+#Reactive kernel density estimate
 kde <- reactive({
   bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
          bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
 })
 
+#The total area under the kde for normalization. Not sure if this actually works
+#right tho....
 norm <- reactive({
   int <- 0
   for(i in 1:(nrow(kde()$fhat)-1)){
@@ -132,33 +140,58 @@ norm <- reactive({
   int
 })
 
+
+#Create contour lines of the density
 contours <- reactive({
   contourLines(kde()$x1, kde()$x2, kde()$fhat)
 })
 
-
+#Also a raster heatmap
 # heat_raster <- reactive({
 #   raster(list(x = kde()$x1, y = kde()$x2, z = kde()$fhat))
 # })
 
-pal <- reactive({
-  colorFactor("Reds",
-               unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))]))
+#A color palette for the contours. The mess of a domain unpacks the list
+#structure of the contour lines, matches the entries that correspond to the
+#equiprobable levels, and then makes a vector containing each level once
+contour_pal <- reactive({
+  colorFactor(palette = "Reds",
+              domain = unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))]))
 })
 
 ```
 
+This map uses the same data as the map of crime occurences, but applies a 
+technique called kernel density estimation to the data points. The goal is to 
+use the historical data to estimate how likely it is that a crime will occur 
+close to a given point on the map. The contour lines represent paths of equal 
+probability density over the map. Think of them like the contours that indicate 
+elevation on a topographical map, but now in areas of high "elevation," a crime 
+of the selected type is more likely to have occured than in an area of lower 
+"elevation." Take note, however, that the numbers on the legend are **not** 
+actual probabilities. They are only present to provide a sense of scale for the 
+contours. They should only be used for comparisons within the context of the map
+view currently on display.
+
+Maybe the most useful way to intepret this presentation is to recognize that the
+areas of high probability density (or "elevation," in the topographical 
+metaphor) are areas in which crimes appear to be clustered. Perhaps some 
+underlying pattern can be found in the ways in which these areas shift from year
+to year or what underlying factors are correlated with an area of high crime
+density.
 
 Column
 -------
 
 ```{r}
+#Make the map
 output$map_heat <- renderLeaflet({
     leaflet(points_year) %>%
     addProviderTiles("Stamen.TonerLite") %>%
     fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
   })
 
+#Add the raster heat map
 # observe({
 #   leafletProxy("map_heat") %>%
 #     clearImages() %>%
@@ -166,23 +199,44 @@ output$map_heat <- renderLeaflet({
 #   })
 
 
+#Add the contours
 observe({
-  pal_temp <- pal()
+  #define temporary values for convenience, again with the mess from the palette
+  pal_temp <- contour_pal()
   norm_temp <- norm()
   values_temp <- unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))])
-  leafletProxy("map_heat") %>%
-    clearShapes()
   
+  #Clear off everything old
+  leafletProxy("map_heat") %>%
+    clearShapes() %>% 
+    clearMarkers()
+  
+    if(input$display_points){
+    leafletProxy("map_heat", data = points_filter_heat()) %>% 
+      clearMarkers() %>% 
+      addCircleMarkers(~LON, ~LAT, color = "coral", radius = 3, opacity = .7)
+  }
+
+  #Add the right number of contours
   for(i in 1:length(contours())){
     leafletProxy("map_heat") %>% 
-      addPolylines(contours()[[i]]$x, contours()[[i]]$y, color = pal_temp(contours()[[i]]$level), weight = 4)
+      addPolylines(contours()[[i]]$x, contours()[[i]]$y,
+                   color = pal_temp(contours()[[i]]$level), weight = 4, opacity = .6)
   }
   
+  #Add the legend
   leafletProxy("map_heat") %>% 
     clearControls() %>% 
-    addLegend("bottomleft", pal = pal_temp, values = values_temp, labFormat = labelFormat(digits = 3, transform = function(x) x/norm_temp))
+    addLegend("bottomleft", pal = pal_temp, values = values_temp,
+              labFormat = labelFormat(digits = 3, transform = function(x) x/norm_temp))
+              #Normalize only on legend output
+  
+
   })
 
+
+#Make it big
 tags$style(type = "text/css", "#map_heat {height: calc(100vh - 80px) !important;}")
 leafletOutput("map_heat")
 ```
+
