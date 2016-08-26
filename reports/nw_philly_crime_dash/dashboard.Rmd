@@ -99,9 +99,10 @@ Select year {.sidebar}
 
 ```{r}
 #Make inputs
+
 sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = 2016, step = 1,
             ticks = FALSE, round = TRUE,
-            sep = "") #check out animate once everything is working...
+            sep = "", animate = TRUE)
 radioButtons("type_heat", "Crime type:",
              choices = c("Homicides", "Assaults", "Sexual assaults"), 
              selected = "Homicides")
