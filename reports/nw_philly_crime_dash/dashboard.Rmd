@@ -10,8 +10,8 @@ library(flexdashboard)
 library(leaflet)
 library(dplyr)
 library(KernSmooth)
-library(raster)
-library(RColorBrewer)
+#library(raster)
+#library(RColorBrewer)
 
 load("data/points.RData")
 load("data/points_year.RData")
@@ -20,11 +20,6 @@ load("data/bb.RData")
 # points_year <- points
 # points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
 # points_year$TYPE <- as.character(points_year$TYPE)
-
-#Make a color pallete for crime types
-type_pal <- reactive({
-    colorFactor(topo.colors(3), points$TYPE)
-  })
 
 ```
 
@@ -50,6 +45,11 @@ points_filter <- reactive({
            & TYPE %in% input$type)
   })
 
+#Make a color pallete for crime types
+type_pal <- reactive({
+    colorFactor(topo.colors(3), points$TYPE)
+  })
+
 ```
 
 This map shows the location of different types of violent crime in northwest
@@ -70,7 +70,7 @@ been lost in these categorizations.
 The data were collected from
 [OpenDataPhilly](https://www.opendataphilly.org/dataset/crime-incidents) and no
 ownership is claimed. This work is licensed under the [MIT
-License](https://opensource.org/licenses/MIT)
+License](https://opensource.org/licenses/MIT).
 
 Column
 -------
@@ -130,15 +130,15 @@ kde <- reactive({
 
 #The total area under the kde for normalization. Not sure if this actually works
 #right tho....
-norm <- reactive({
-  int <- 0
-  for(i in 1:(nrow(kde()$fhat)-1)){
-    for(j in 1:(ncol(kde()$fhat)-1)){
-      int <- int + kde()$fhat[i,j]*(kde()$x1[j+1]-kde()$x1[j])*(kde()$x2[i+1]-kde()$x2[1])
-    }
-  }
-  int
-})
+# norm <- reactive({
+#   int <- 0
+#   for(i in 1:(nrow(kde()$fhat)-1)){
+#     for(j in 1:(ncol(kde()$fhat)-1)){
+#       int <- int + kde()$fhat[i,j]*(kde()$x1[j+1]-kde()$x1[j])*(kde()$x2[i+1]-kde()$x2[1])
+#     }
+#   }
+#   int
+# })
 
 
 #Create contour lines of the density
@@ -203,7 +203,7 @@ output$map_heat <- renderLeaflet({
 observe({
   #define temporary values for convenience, again with the mess from the palette
   pal_temp <- contour_pal()
-  norm_temp <- norm()
+  #norm_temp <- norm()
   values_temp <- unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))])
   
   #Clear off everything old
@@ -228,7 +228,7 @@ observe({
   leafletProxy("map_heat") %>% 
     clearControls() %>% 
     addLegend("bottomleft", pal = pal_temp, values = values_temp,
-              labFormat = labelFormat(digits = 3, transform = function(x) x/norm_temp))
+              labFormat = labelFormat(digits = 3, transform = function(x) x))
               #Normalize only on legend output
   
 
