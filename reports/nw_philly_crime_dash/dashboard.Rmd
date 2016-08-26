@@ -72,7 +72,7 @@ The data were collected from
 ownership is claimed. This work is licensed under the [MIT
 License](https://opensource.org/licenses/MIT).
 
-Column
+Map
 -------
 
 ```{r}
@@ -124,8 +124,8 @@ points_filter_heat <- reactive({
 
 #Reactive kernel density estimate
 kde <- reactive({
-  bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT),
-         bandwidth = c(bw.nrd(points_filter_heat()$LON), bw.nrd(points_filter_heat()$LAT)))
+  bkde2D(cbind(points_filter_heat()$LON, points_filter_heat()$LAT), 
+         bandwidth = c(dpik(points_filter_heat()$LON), dpik(points_filter_heat()$LAT)))
 })
 
 #The total area under the kde for normalization. Not sure if this actually works
@@ -180,7 +180,7 @@ underlying pattern can be found in the ways in which these areas shift from year
 to year or what underlying factors are correlated with an area of high crime
 density.
 
-Column
+Map
 -------
 
 ```{r}
