@@ -2,7 +2,11 @@
 title: "Crime in Northwest Philadelphia"
 runtime: shiny
 output: 
-  flexdashboard::flex_dashboard
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    social: menu
+    navbar:
+      - {title: "All apps", href: "http://www.nicksolomon.me/apps"}
 ---
 
 ```{r setup, include=FALSE}
@@ -10,6 +14,7 @@ library(flexdashboard)
 library(leaflet)
 library(dplyr)
 library(KernSmooth)
+library(shinyBS)
 #library(raster)
 #library(RColorBrewer)
 
@@ -100,7 +105,7 @@ Select year {.sidebar}
 ```{r}
 #Make inputs
 
-sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = 2016, step = 1,
+sliderInput("year_heat", "Year:", min = 2006, max = 2016, value = c(2016, 2016), step = 1,
             ticks = FALSE, round = TRUE,
             sep = "", animate = TRUE)
 radioButtons("type_heat", "Crime type:",
@@ -108,11 +113,13 @@ radioButtons("type_heat", "Crime type:",
              selected = "Homicides")
 checkboxInput("display_points", "Display points", value = FALSE)
 
+bsTooltip("display_points", "When more than 1,500 data points are selected, a random sample of size 1,500 will be displayed to reduce loading time.")
+
 #Filter points again
 points_filter_heat <- reactive({
   shiny::validate(need(input$year_heat, label = "year")) #For some reason it won't work without this
-  points_year %>% 
-   filter(year == input$year_heat
+  points_temp <- points_year %>% 
+   filter(year >= input$year_heat[1] & year <= input$year_heat[2]
             & points_year$TYPE %in% input$type_heat)
   })
 
@@ -178,6 +185,8 @@ Column
 -------
 
 ```{r}
+#renderText({dim(points_filter_heat())})
+
 #Make the map
 output$map_heat <- renderLeaflet({
     leaflet(points_year) %>%
@@ -197,7 +206,6 @@ output$map_heat <- renderLeaflet({
 observe({
   #define temporary values for convenience, again with the mess from the palette
   pal_temp <- contour_pal()
-  #norm_temp <- norm()
   values_temp <- unique(unlist(contours())[grepl("level", attr(unlist(contours()), "names"))])
   
   #Clear off everything old
@@ -206,9 +214,14 @@ observe({
     clearMarkers()
   
     if(input$display_points){
-    leafletProxy("map_heat", data = points_filter_heat()) %>% 
-      clearMarkers() %>% 
-      addCircleMarkers(~LON, ~LAT, color = "coral", radius = 3, opacity = .7)
+
+      if(length(points_filter_heat()$LAT) > 1500){
+        points_temp <- sample_n(points_filter_heat(), 1500)
+      } else points_temp <- points_filter_heat()
+      
+      leafletProxy("map_heat", data = points_temp) %>% 
+        clearMarkers() %>% 
+        addCircleMarkers(~LON, ~LAT, color = "coral", radius = 3, opacity = .7)
   }
 
   #Add the right number of contours
@@ -223,9 +236,6 @@ observe({
     clearControls() %>% 
     addLegend("bottomleft", pal = pal_temp, values = values_temp,
               labFormat = labelFormat(digits = 3, transform = function(x) x))
-              #Normalize only on legend output
-  
-
   })
 
 
