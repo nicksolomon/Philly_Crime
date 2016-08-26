@@ -13,14 +13,7 @@ library(KernSmooth)
 #library(raster)
 #library(RColorBrewer)
 
-load("data/points.RData")
 load("data/points_year.RData")
-load("data/bb.RData")
-
-# points_year <- points
-# points_year$year <- as.POSIXlt(points_year$DISPATCH_DATE)$year + 1900
-# points_year$TYPE <- as.character(points_year$TYPE)
-
 ```
 
 Crime Occurences
@@ -40,14 +33,14 @@ checkboxGroupInput("type", "Crime type:", choices = c("Homicides", "Assaults", "
 
 #Filter points to be displayed based on the inputs
 points_filter <- reactive({
-    filter(points, DISPATCH_DATE >= as.POSIXct(format(input$dates[1]), format = "%Y-%m-%d")
+    filter(points_year, DISPATCH_DATE >= as.POSIXct(format(input$dates[1]), format = "%Y-%m-%d")
            & DISPATCH_DATE <=  as.POSIXct(format(input$dates[2]), format = "%Y-%m-%d")
            & TYPE %in% input$type)
   })
 
 #Make a color pallete for crime types
 type_pal <- reactive({
-    colorFactor(topo.colors(3), points$TYPE)
+    colorFactor(topo.colors(3), points_year$TYPE)
   })
 
 ```
@@ -78,7 +71,7 @@ Column
 ```{r}
 #Make a map
 output$map <- renderLeaflet({
-    leaflet(points) %>%
+    leaflet(points_year) %>%
       addProviderTiles("Stamen.TonerLite") %>%
       fitBounds(~min(LON), ~min(LAT), ~max(LON), ~max(LAT))
   })
