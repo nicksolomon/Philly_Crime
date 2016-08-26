@@ -72,7 +72,7 @@ The data were collected from
 ownership is claimed. This work is licensed under the [MIT
 License](https://opensource.org/licenses/MIT).
 
-Map
+Column
 -------
 
 ```{r}
@@ -180,7 +180,7 @@ underlying pattern can be found in the ways in which these areas shift from year
 to year or what underlying factors are correlated with an area of high crime
 density.
 
-Map
+Column
 -------
 
 ```{r}
